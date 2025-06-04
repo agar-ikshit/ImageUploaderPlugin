@@ -144,7 +144,35 @@ local function getImageDimensions(filePath)
   local width, height = result:match("(%d+)%s+(%d+)")
   return tonumber(width), tonumber(height)
 end
+local function getImageInfo(filePath)
+  local command = string.format('exiftool -ImageWidth -ImageHeight -DateTimeOriginal -s3 "%s"', filePath)
+  local handle = io.popen(command)
+  local result = handle:read("*a")
+  handle:close()
 
+  -- Parse result lines: one value per line
+  local width, height, dateTime = result:match("(%d+)%s+(%d+)%s+([^\n]+)")
+  return tonumber(width), tonumber(height), dateTime
+end
+
+local function getMimeType(filePath)
+  local ext = filePath:match("^.+(%..+)$")
+  if not ext then return "application/octet-stream" end
+
+  ext = ext:lower()
+  local map = {
+    [".jpg"] = "image/jpeg",
+    [".jpeg"] = "image/jpeg",
+    [".png"] = "image/png",
+    [".gif"] = "image/gif",
+    [".tif"] = "image/tiff",
+    [".tiff"] = "image/tiff",
+    [".bmp"] = "image/bmp",
+    [".webp"] = "image/webp",
+  }
+
+  return map[ext] or "application/octet-stream"
+end
 local function preparePhotoMetadata(photos)
   local prepared = {}
   for _, photo in ipairs(photos) do
