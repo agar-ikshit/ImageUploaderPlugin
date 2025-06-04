@@ -48,7 +48,7 @@ exportServiceProvider.sectionsForBottomOfDialog = function(viewFactory, property
 end
 
 exportServiceProvider.processRenderedPhotos = function(functionContext, exportContext)
-  local Uploader = require 'Uploader'
+  local Uploader = require 'Uploader.Init'  -- Changed to require Uploader.Init
 
   -- Run the upload in a separate async task to avoid freezing Lightroom UI
   LrTasks.startAsyncTask(function()
@@ -80,8 +80,8 @@ exportServiceProvider.processRenderedPhotos = function(functionContext, exportCo
       local album, albumSet = Uploader.createAlbum(
         exportContext.propertyTable.albumName,
         os.date("!%Y-%m-%dT%H:%M:%S.000Z"),
-        { "tag1", "tag2" },           -- Customize or add UI to input these
-        { "Person A", "Person B" },   -- Customize or add UI to input these
+        { "tag1", "tag2" },           -- You can later customize or add UI to input these
+        { "Person A", "Person B" },   -- Same here, customizable participants
         exportContext.propertyTable.projectId
       )
 
@@ -99,13 +99,11 @@ exportServiceProvider.processRenderedPhotos = function(functionContext, exportCo
       -- Upload photos in batches (uses your Uploader module)
       Uploader.uploadPhotosInBatches(albumId, albumSetId, photos)
 
-      
       LrDialogs.message("Upload Complete", "All photos uploaded successfully!", "info")
 
     end)
 
     if not status then
-      
       LrDialogs.message("Upload Failed", tostring(err), "critical")
     end
   end)
