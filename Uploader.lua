@@ -127,6 +127,127 @@ function M.finishUpload(albumId, photos, isLastBatch)
   return post(url, body)
 end
 
+local function splitIntoBatches(t, batchSize)
+  local batches = {}
+  for i = 1, #t, batchSize do
+    table.insert(batches, {table.unpack(t, i, math.min(i + batchSize - 1, #t))})
+  end
+  return batches
+end
+
+local function getImageDimensions(filePath)
+  local command = string.format('exiftool -ImageWidth -ImageHeight -s3 "%s"', filePath)
+  local handle = io.popen(command)
+  local result = handle:read("*a")
+  handle:close()
+
+  local width, height = result:match("(%d+)%s+(%d+)")
+  return tonumber(width), tonumber(height)
+end
+
+local function preparePhotoMetadata(photos)
+  local prepared = {}
+  for _, photo in ipairs(photos) do
+    local width, height = getImageDimensions(photo.filePath)
+
+    table.insert(prepared, {
+      name = photo.name,
+      type = "image/jpeg", -- Optional: make this dynamic later
+      dimensionX = width or 0,
+      dimensionY = height or 0,
+      clickedAt = photo.clickedAt or os.date("!%Y-%m-%dT%H:%M:%S+00:00")
+    })
+  end
+  return prepared
+end
+
+local function uploadPhotoWithRetries(photoUrls, originalFilePath, webFilePath)
+  local maxRetries = 3
+  local retryDelay = 1
+
+  local function upload(url, filePath)
+    local ok, err = pcall(M.uploadWithRetry, url, filePath, "image/jpeg")
+    return ok, err
+  end
+
+  -- Upload original
+  for attempt = 1, maxRetries do
+    local ok, err = upload(photoUrls.original, originalFilePath)
+    if ok then break
+    elseif attempt == maxRetries then return false, "Failed original upload: "..tostring(err)
+    else
+      os.execute("sleep " .. tonumber(retryDelay))
+      retryDelay = retryDelay * 2
+    end
+  end
+
+  -- Reset retry delay for web upload
+  retryDelay = 1
+
+  -- Upload web (downsized)
+  for attempt = 1, maxRetries do
+    local ok, err = upload(photoUrls.web, webFilePath)
+    if ok then return true
+    elseif attempt == maxRetries then return false, "Failed web upload: "..tostring(err)
+    else
+      os.execute("sleep " .. tonumber(retryDelay))
+      retryDelay = retryDelay * 2
+    end
+  end
+end
+
+
+
+function M.uploadPhotosInBatches(albumId, albumSetId, photos)
+  local batchSize = 20
+  local batches = splitIntoBatches(photos, batchSize)
+
+  for batchIndex, batchPhotos in ipairs(batches) do
+    local photoMetadata = preparePhotoMetadata(batchPhotos)
+
+    -- Step 2: Get signed URLs
+    local initResponse = M.getSignedUrls(albumId, albumSetId, photoMetadata)
+
+    if not initResponse.photos or #initResponse.photos == 0 then
+      error("No signed URLs returned for batch " .. batchIndex)
+    end
+
+    -- Upload photos in this batch
+    local uploadedPhotos = {}
+
+    for i, photoInfo in ipairs(initResponse.photos) do
+      local photo = batchPhotos[i]
+      local urls = photoInfo.urls
+      local originalPath = photo.filePath
+      local webPath = photo.webFilePath or photo.filePath  -- replace with actual downsized path if you have it
+
+      -- Upload with retry (both original and web)
+      local success, err = uploadPhotoWithRetries(urls, originalPath, webPath)
+
+      table.insert(uploadedPhotos, {
+        _id = photoInfo._id,
+        status = success and 1 or 0,
+        size = LrFileUtils.fileAttributes(originalPath).fileSize or 0,
+      })
+
+      if not success then
+        -- Log or handle failed photo upload here
+        -- You may decide to continue or stop depending on your requirements
+      end
+    end
+
+    -- Step 4 & 5: Mark upload completion for this batch
+    local isLastBatch = (batchIndex == #batches)
+    local finishResponse = M.finishUpload(albumId, uploadedPhotos, isLastBatch)
+
+    if not finishResponse then
+      error("Failed to mark upload completion for batch " .. batchIndex)
+    end
+  end
+end
+
+
+
 -- You still need to implement:
 -- - batching photos in groups of 20
 -- - resizing photos if needed before upload
