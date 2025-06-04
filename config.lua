@@ -1,7 +1,14 @@
 return {
-    api_key = "test",
-    upload_url = "https://webhook.site/d8cf1a44-2c0e-4723-8e0b-0e03f394c9d0",
-    image_folder = "assets",
-    timeout = 10,
-    max_retries = 3
+    LrSdkVersion = 10.0,
+    LrSdkMinimumVersion = 6.0,
+
+    LrPluginName = "Image Uploader",
+    LrToolkitIdentifier = 'com.yourname.imageuploader',
+
+    LrExportServiceProvider = {
+        title = "Gallery Uploader",
+        file = "ExportServiceProvider.lua",
+    },
+
+    VERSION = { major = 1, minor = 0, revision = 0, build = 1 },
 }
