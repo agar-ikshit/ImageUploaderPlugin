@@ -80,8 +80,7 @@ function service.processRenderedPhotos(functionContext, exportContext)
             if not signedPhotos then
                 Logger.log('Failed to get signed URLs for batch')
                 failed = failed + #batch
-                goto continue_batch
-            end
+            else
             -- Upload each photo in batch
             local finishPhotos = {}
             for i, photoSet in ipairs(signedPhotos) do
@@ -105,7 +104,7 @@ function service.processRenderedPhotos(functionContext, exportContext)
             -- Mark upload completion for this batch
             local isLastBatch = (batchEnd == total)
             local _, err = FinishAPI.finishUpload(token, albumId, finishPhotos, isLastBatch)
-            ::continue_batch::
+           
         end
         LrDialogs.message('Upload Complete', string.format('Uploaded: %d, Failed: %d', uploaded, failed), 'info')
     end)
