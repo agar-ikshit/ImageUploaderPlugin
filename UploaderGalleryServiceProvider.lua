@@ -1,4 +1,3 @@
-local LrExportServiceProvider = import 'LrExportServiceProvider'
 local LrDialogs = import 'LrDialogs'
 local LrTasks = import 'LrTasks'
 local LrFunctionContext = import 'LrFunctionContext'
@@ -6,12 +5,12 @@ local LrView = import 'LrView'
 local LrPathUtils = import 'LrPathUtils'
 local LrFileUtils = import 'LrFileUtils'
 
-local AlbumDialog = require 'ui/AlbumDialog'
-local AlbumAPI = require 'api/AlbumAPI'
-local UploadAPI = require 'api/UploadAPI'
-local FinishAPI = require 'api/FinishAPI'
-local Config = require 'util/Config'
-local Logger = require 'util/Logger'
+
+local AlbumAPI = (loadfile(LrPathUtils.child(_PLUGIN.path, "api/AlbumAPI.lua")))()
+local UploadAPI = (loadfile(LrPathUtils.child(_PLUGIN.path, "api/UploadAPI.lua")))()
+local FinishAPI = (loadfile(LrPathUtils.child(_PLUGIN.path, "api/FinishAPI.lua")))()
+local Config = (loadfile(LrPathUtils.child(_PLUGIN.path, "util/Config.lua")))()
+local Logger = (loadfile(LrPathUtils.child(_PLUGIN.path, "util/Logger.lua")))()
 
 local dkjson = require 'dkjson'
 
@@ -104,10 +103,20 @@ function service.processRenderedPhotos(functionContext, exportContext)
             -- Mark upload completion for this batch
             local isLastBatch = (batchEnd == total)
             local _, err = FinishAPI.finishUpload(token, albumId, finishPhotos, isLastBatch)
-           
-        end
-        LrDialogs.message('Upload Complete', string.format('Uploaded: %d, Failed: %d', uploaded, failed), 'info')
-    end)
-end
+        end -- closes the 'if not signedPhotos ... else ... end'
+    end -- closes the 'for batchStart = 1, total, batchSize do' loop
 
-return LrExportServiceProvider.extend('UploaderGalleryServiceProvider', service)
+    LrDialogs.message('Upload Complete', string.format('Uploaded: %d, Failed: %d', uploaded, failed), 'info')
+    end) -- closes LrTasks.startAsyncTask
+end -- closes service.processRenderedPhotos
+
+return  {
+    title = "Uploader Gallery",
+    hideSections = { 'exportLocation', 'fileNaming' },
+    allowFileFormats = { 'JPEG' },
+    allowColorSpaces = { 'sRGB' },
+    exportPresetFields = {
+        { key = 'albumName', default = 'Untitled Album' },
+    },
+    processRenderedPhotos = service.processRenderedPhotos
+}

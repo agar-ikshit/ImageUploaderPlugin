@@ -1,7 +1,9 @@
 local LrHttp = import 'LrHttp'
 local LrTasks = import 'LrTasks'
-local Config = require 'util/Config'
-local Logger = require 'util/Logger'
+local LrPathUtils = import 'LrPathUtils'
+
+local Config = (loadfile(LrPathUtils.child(_PLUGIN.path, "util/Config.lua")))()
+local Logger = (loadfile(LrPathUtils.child(_PLUGIN.path, "util/Logger.lua")))()
 
 local UploadAPI = {}
 
